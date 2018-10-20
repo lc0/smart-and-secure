@@ -29,6 +29,8 @@ import com.example.androidthings.imageclassifier.classifier.Recognition;
 import com.example.androidthings.imageclassifier.classifier.TensorFlowHelper;
 import com.google.android.things.contrib.driver.button.ButtonInputDriver;
 import com.google.android.things.contrib.driver.rainbowhat.RainbowHat;
+import com.google.android.things.pio.I2cDevice;
+import com.google.android.things.pio.PeripheralManager;
 
 import org.tensorflow.lite.Interpreter;
 
@@ -65,6 +67,8 @@ public class ImageClassifierActivity extends Activity {
     // TODO: ADD CAMERA SUPPORT
     private Interpreter mTensorFlowLite;
     private List<String> mLabels;
+    private ButtonInputDriver mButtonDriver2;
+    private I2cDevice i2cDevice;
 
     /**
      * Initialize the classifier that will be used to process images.
@@ -180,6 +184,9 @@ public class ImageClassifierActivity extends Activity {
         try {
             mButtonDriver = RainbowHat.createButtonCInputDriver(KeyEvent.KEYCODE_ENTER);
             mButtonDriver.register();
+
+            mButtonDriver2 = RainbowHat.createButtonBInputDriver(KeyEvent.KEYCODE_BUTTON_1);
+            mButtonDriver2.register();
         } catch (IOException e) {
             Log.w(TAG, "Cannot find button. Ignoring push button. Use a keyboard instead.", e);
         }
@@ -192,6 +199,52 @@ public class ImageClassifierActivity extends Activity {
 
     @Override
     public boolean onKeyUp(int keyCode, KeyEvent event) {
+
+        //TODO: proper enum for buttons
+        switch (keyCode) {
+            case KeyEvent.KEYCODE_ENTER: {
+                Log.d(TAG, "The button C was pressed");
+                break;
+            }
+
+            case KeyEvent.KEYCODE_BUTTON_1: {
+                Log.d(TAG, "The button B was pressed");
+
+                PeripheralManager manager = PeripheralManager.getInstance();
+                List<String> deviceList = manager.getI2cBusList();
+                if (deviceList.isEmpty()) {
+                    Log.i(TAG, "No I2C bus available on this device.");
+                } else {
+                    Log.i(TAG, "List of available devices: " + deviceList);
+                }
+
+                // Attempt to access the I2C device
+                String I2C_DEVICE_NAME = "I2C1";
+                int I2C_ADDRESS = 0x15;
+
+
+                try {
+                    if (i2cDevice == null) {
+                        i2cDevice = manager.openI2cDevice(I2C_DEVICE_NAME, I2C_ADDRESS);
+                    }
+
+                    Log.i(TAG, "i2C device: " + i2cDevice);
+                } catch (IOException e) {
+                    Log.w(TAG, "Unable to access I2C device", e);
+                }
+
+                try {
+                    byte[] data = readCalibration(i2cDevice, 0x0);
+
+                    Log.w(TAG, "Here is data:  " + data);
+                } catch (IOException e) {
+                    Log.w(TAG, "Unable to read data: " + e.getMessage());
+                }
+
+                break;
+            }
+        }
+
         if (keyCode == KeyEvent.KEYCODE_ENTER) {
             if (mProcessing) {
                 updateStatus("Still processing, please wait");
@@ -202,7 +255,17 @@ public class ImageClassifierActivity extends Activity {
             loadPhoto();
             return true;
         }
+
+
         return super.onKeyUp(keyCode, event);
+    }
+
+    // Read a register block
+    public byte[] readCalibration(I2cDevice device, int startAddress) throws IOException {
+        // Read three consecutive register values
+        byte[] data = new byte[3];
+        device.readRegBuffer(startAddress, data, data.length);
+        return data;
     }
 
     /**
@@ -271,6 +334,16 @@ public class ImageClassifierActivity extends Activity {
             if (mButtonDriver != null) mButtonDriver.close();
         } catch (Throwable t) {
             // close quietly
+        }
+
+
+        if (i2cDevice != null) {
+            try {
+                i2cDevice.close();
+                i2cDevice = null;
+            } catch (IOException e) {
+                Log.w(TAG, "Unable to close I2C device", e);
+            }
         }
     }
 }
