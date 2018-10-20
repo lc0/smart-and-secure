@@ -41,6 +41,8 @@ import java.util.PriorityQueue;
 public class TensorFlowHelper {
 
     private static final int RESULTS_TO_SHOW = 3;
+    private static final int IMAGE_MEAN = 128;
+    private static final float IMAGE_STD = 128.0f;
 
     /**
      * Memory-map the model file in Assets.
@@ -73,7 +75,7 @@ public class TensorFlowHelper {
     /**
      * Find the best classifications.
       */
-    public static Collection<Recognition> getBestResults(byte[][] labelProbArray,
+    public static Collection<Recognition> getBestResults(float[][] labelProbArray,
                                                          List<String> labelList) {
         PriorityQueue<Recognition> sortedLabels = new PriorityQueue<>(RESULTS_TO_SHOW,
                 new Comparator<Recognition>() {
@@ -86,7 +88,7 @@ public class TensorFlowHelper {
 
         for (int i = 0; i < labelList.size(); ++i) {
             Recognition r = new Recognition( String.valueOf(i),
-                    labelList.get(i), (labelProbArray[0][i] & 0xff) / 255.0f);
+                    labelList.get(i), labelProbArray[0][i]);
             sortedLabels.add(r);
             if (r.getConfidence() > 0) {
                 Log.d("ImageRecognition", r.toString());
@@ -118,9 +120,9 @@ public class TensorFlowHelper {
         for (int i = 0; i < bitmap.getWidth(); ++i) {
             for (int j = 0; j < bitmap.getHeight(); ++j) {
                 final int val = intValues[pixel++];
-                imgData.put((byte) ((val >> 16) & 0xFF));
-                imgData.put((byte) ((val >> 8) & 0xFF));
-                imgData.put((byte) (val & 0xFF));
+                imgData.putFloat(( ((val >> 16) & 0xFF) - IMAGE_MEAN)/IMAGE_STD);
+                imgData.putFloat(( ((val >> 8) & 0xFF) - IMAGE_MEAN)/IMAGE_STD);
+                imgData.putFloat(( (val & 0xFF) - IMAGE_MEAN)/IMAGE_STD);
             }
         }
     }

@@ -114,11 +114,11 @@ public class ImageClassifierActivity extends Activity {
     private void doRecognize(Bitmap image) {
         // TODO: ADD ARTIFICIAL INTELLIGENCE
         // Allocate space for the inference results
-        byte[][] confidencePerLabel = new byte[1][mLabels.size()];
+        float[][] confidencePerLabel = new float[1][mLabels.size()];
         // Allocate buffer for image pixels.
         int[] intValues = new int[TF_INPUT_IMAGE_WIDTH * TF_INPUT_IMAGE_HEIGHT];
         ByteBuffer imgData = ByteBuffer.allocateDirect(
-                DIM_BATCH_SIZE * TF_INPUT_IMAGE_WIDTH * TF_INPUT_IMAGE_HEIGHT * DIM_PIXEL_SIZE);
+                4 * DIM_BATCH_SIZE * TF_INPUT_IMAGE_WIDTH * TF_INPUT_IMAGE_HEIGHT * DIM_PIXEL_SIZE);
         imgData.order(ByteOrder.nativeOrder());
 
         // Read image data into buffer formatted for the TensorFlow model
