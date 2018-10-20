@@ -18,6 +18,7 @@ package com.example.androidthings.imageclassifier;
 import android.app.Activity;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
+import android.media.ImageReader;
 import android.os.Bundle;
 import android.util.Log;
 import android.view.KeyEvent;
@@ -67,11 +68,17 @@ public class ImageClassifierActivity extends Activity {
     private TextView mResultText;
 
     // TODO: ADD ARTIFICIAL INTELLIGENCE
-    // TODO: ADD CAMERA SUPPORT
     private Interpreter mTensorFlowLite;
     private List<String> mLabels;
-    private ButtonInputDriver mButtonDriver2;
+
+    // TODO: ADD CAMERA SUPPORT
+    private CameraHandler mCameraHandler;
+    private ImagePreprocessor mImagePreprocessor;
+
+
+    private ButtonInputDriver mButtonBDriver;
     private I2cDevice i2cDevice;
+    private ButtonInputDriver mButtonADriver;
 
     /**
      * Initialize the classifier that will be used to process images.
@@ -134,6 +141,19 @@ public class ImageClassifierActivity extends Activity {
      */
     private void initCamera() {
         // TODO: ADD CAMERA SUPPORT
+        mImagePreprocessor = new ImagePreprocessor(
+                PREVIEW_IMAGE_WIDTH, PREVIEW_IMAGE_HEIGHT,
+                TF_INPUT_IMAGE_WIDTH, TF_INPUT_IMAGE_HEIGHT);
+        mCameraHandler = CameraHandler.getInstance();
+        mCameraHandler.initializeCamera(this,
+                PREVIEW_IMAGE_WIDTH, PREVIEW_IMAGE_HEIGHT, null,
+                new ImageReader.OnImageAvailableListener() {
+                    @Override
+                    public void onImageAvailable(ImageReader imageReader) {
+                        Bitmap bitmap = mImagePreprocessor.preprocessImage(imageReader.acquireNextImage());
+                        onPhotoReady(bitmap);
+                    }
+                });
     }
 
     /**
@@ -141,6 +161,7 @@ public class ImageClassifierActivity extends Activity {
      */
     private void closeCamera() {
         // TODO: ADD CAMERA SUPPORT
+        mCameraHandler.shutDown();
     }
 
     /**
@@ -188,8 +209,11 @@ public class ImageClassifierActivity extends Activity {
             mButtonDriver = RainbowHat.createButtonCInputDriver(KeyEvent.KEYCODE_ENTER);
             mButtonDriver.register();
 
-            mButtonDriver2 = RainbowHat.createButtonBInputDriver(KeyEvent.KEYCODE_BUTTON_1);
-            mButtonDriver2.register();
+            mButtonBDriver = RainbowHat.createButtonBInputDriver(KeyEvent.KEYCODE_BUTTON_1);
+            mButtonBDriver.register();
+
+            mButtonADriver = RainbowHat.createButtonAInputDriver(KeyEvent.KEYCODE_BUTTON_2);
+            mButtonADriver.register();
         } catch (IOException e) {
             Log.w(TAG, "Cannot find button. Ignoring push button. Use a keyboard instead.", e);
         }
@@ -265,6 +289,11 @@ public class ImageClassifierActivity extends Activity {
                 }
 
                 break;
+            }
+            case KeyEvent.KEYCODE_BUTTON_2: {
+                Log.d(TAG, "The button A was pressed");
+
+                mCameraHandler.takePicture();
             }
         }
 
