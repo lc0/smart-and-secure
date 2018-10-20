@@ -18,6 +18,7 @@ package com.example.androidthings.imageclassifier;
 import android.app.Activity;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
+import android.media.ImageReader;
 import android.os.Bundle;
 import android.util.Log;
 import android.view.KeyEvent;
@@ -29,15 +30,20 @@ import com.example.androidthings.imageclassifier.classifier.Recognition;
 import com.example.androidthings.imageclassifier.classifier.TensorFlowHelper;
 import com.google.android.things.contrib.driver.button.ButtonInputDriver;
 import com.google.android.things.contrib.driver.rainbowhat.RainbowHat;
+import com.google.android.things.pio.I2cDevice;
+import com.google.android.things.pio.PeripheralManager;
+
 
 import org.tensorflow.lite.Interpreter;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
+import java.nio.charset.StandardCharsets;
 import java.util.Collection;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Locale;
 
 public class ImageClassifierActivity extends Activity {
     private static final String TAG = "ImageClassifierActivity";
@@ -62,9 +68,17 @@ public class ImageClassifierActivity extends Activity {
     private TextView mResultText;
 
     // TODO: ADD ARTIFICIAL INTELLIGENCE
-    // TODO: ADD CAMERA SUPPORT
     private Interpreter mTensorFlowLite;
     private List<String> mLabels;
+
+    // TODO: ADD CAMERA SUPPORT
+    private CameraHandler mCameraHandler;
+    private ImagePreprocessor mImagePreprocessor;
+
+
+    private ButtonInputDriver mButtonBDriver;
+    private I2cDevice i2cDevice;
+    private ButtonInputDriver mButtonADriver;
 
     /**
      * Initialize the classifier that will be used to process images.
@@ -127,6 +141,19 @@ public class ImageClassifierActivity extends Activity {
      */
     private void initCamera() {
         // TODO: ADD CAMERA SUPPORT
+        mImagePreprocessor = new ImagePreprocessor(
+                PREVIEW_IMAGE_WIDTH, PREVIEW_IMAGE_HEIGHT,
+                TF_INPUT_IMAGE_WIDTH, TF_INPUT_IMAGE_HEIGHT);
+        mCameraHandler = CameraHandler.getInstance();
+        mCameraHandler.initializeCamera(this,
+                PREVIEW_IMAGE_WIDTH, PREVIEW_IMAGE_HEIGHT, null,
+                new ImageReader.OnImageAvailableListener() {
+                    @Override
+                    public void onImageAvailable(ImageReader imageReader) {
+                        Bitmap bitmap = mImagePreprocessor.preprocessImage(imageReader.acquireNextImage());
+                        onPhotoReady(bitmap);
+                    }
+                });
     }
 
     /**
@@ -134,6 +161,7 @@ public class ImageClassifierActivity extends Activity {
      */
     private void closeCamera() {
         // TODO: ADD CAMERA SUPPORT
+        mCameraHandler.shutDown();
     }
 
     /**
@@ -180,6 +208,12 @@ public class ImageClassifierActivity extends Activity {
         try {
             mButtonDriver = RainbowHat.createButtonCInputDriver(KeyEvent.KEYCODE_ENTER);
             mButtonDriver.register();
+
+            mButtonBDriver = RainbowHat.createButtonBInputDriver(KeyEvent.KEYCODE_BUTTON_1);
+            mButtonBDriver.register();
+
+            mButtonADriver = RainbowHat.createButtonAInputDriver(KeyEvent.KEYCODE_BUTTON_2);
+            mButtonADriver.register();
         } catch (IOException e) {
             Log.w(TAG, "Cannot find button. Ignoring push button. Use a keyboard instead.", e);
         }
@@ -192,17 +226,105 @@ public class ImageClassifierActivity extends Activity {
 
     @Override
     public boolean onKeyUp(int keyCode, KeyEvent event) {
-        if (keyCode == KeyEvent.KEYCODE_ENTER) {
-            if (mProcessing) {
-                updateStatus("Still processing, please wait");
-                return true;
+
+        //TODO: proper enum for buttons
+        switch (keyCode) {
+
+            case KeyEvent.KEYCODE_ENTER: {
+                Log.d(TAG, "The button C was pressed");
+                if (mProcessing) {
+                    updateStatus("Still processing, please wait");
+                    return true;
+                }
+                updateStatus("Running photo recognition");
+                mProcessing = true;
+                loadPhoto();
+
+                break;
             }
-            updateStatus("Running photo recognition");
-            mProcessing = true;
-            loadPhoto();
-            return true;
+
+            case KeyEvent.KEYCODE_BUTTON_1: {
+                Log.d(TAG, "The button B was pressed");
+
+                PeripheralManager manager = PeripheralManager.getInstance();
+                List<String> deviceList = manager.getI2cBusList();
+                if (deviceList.isEmpty()) {
+                    Log.i(TAG, "No I2C bus available on this device.");
+                } else {
+                    Log.i(TAG, "List of available devices: " + deviceList);
+                }
+
+                // Attempt to access the I2C device
+                String I2C_DEVICE_NAME = "I2C1";
+                int I2C_ADDRESS = 0x55;
+
+//                performScan(manager, I2C_DEVICE_NAME);
+                // I2C1: 0x55, 0x70, 0x77
+                // I2C2: 0x50
+
+
+                try {
+                    if (i2cDevice == null) {
+                        i2cDevice = manager.openI2cDevice(I2C_DEVICE_NAME, I2C_ADDRESS);
+                    }
+
+                    Log.i(TAG, "i2C device: " + i2cDevice);
+                } catch (IOException e) {
+                    Log.w(TAG, "Unable to access I2C device", e);
+                }
+
+                try {
+                    byte[] data = readCalibration(i2cDevice, 0x0);
+
+                    Log.w(TAG, "Here is data:  " + new String(data, StandardCharsets.UTF_8));
+
+                    StringBuffer result = new StringBuffer();
+                    for (byte b : data) {
+                        result.append(String.format("%02X ", b));
+//                        result.append(""); // delimiter
+                    }
+                    Log.w(TAG, "Here is data:  " + result.toString());
+                } catch (IOException e) {
+                    Log.w(TAG, "Unable to read data: " + e.getMessage());
+                }
+
+                break;
+            }
+            case KeyEvent.KEYCODE_BUTTON_2: {
+                Log.d(TAG, "The button A was pressed");
+
+                mCameraHandler.takePicture();
+            }
         }
+
         return super.onKeyUp(keyCode, event);
+    }
+
+    // Read a register block
+    public byte[] readCalibration(I2cDevice device, int startAddress) throws IOException {
+        // Read three consecutive register values
+        byte[] data = new byte[8];
+        device.readRegBuffer(startAddress, data, data.length);
+        return data;
+    }
+
+    private void performScan(PeripheralManager manager, String i2c_bus) {
+        for (int address = 0; address < 256; address++) {
+
+            //auto-close the devices
+            try (final I2cDevice device = manager.openI2cDevice(i2c_bus, address)) {
+
+                try {
+                    device.readRegByte(0x0);
+                    Log.i(TAG, String.format(Locale.US, "Trying: 0x%02X - SUCCESS", address));
+                } catch (final IOException e) {
+                    Log.i(TAG, String.format(Locale.US, "Trying: 0x%02X - FAIL", address));
+                }
+
+            } catch (final IOException e) {
+                //in case the openI2cDevice(name, address) fails
+            }
+        }
     }
 
     /**
@@ -271,6 +393,16 @@ public class ImageClassifierActivity extends Activity {
             if (mButtonDriver != null) mButtonDriver.close();
         } catch (Throwable t) {
             // close quietly
+        }
+
+
+        if (i2cDevice != null) {
+            try {
+                i2cDevice.close();
+                i2cDevice = null;
+            } catch (IOException e) {
+                Log.w(TAG, "Unable to close I2C device", e);
+            }
         }
     }
 }
