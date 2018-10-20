@@ -38,9 +38,11 @@ import org.tensorflow.lite.Interpreter;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
+import java.nio.charset.StandardCharsets;
 import java.util.Collection;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Locale;
 
 public class ImageClassifierActivity extends Activity {
     private static final String TAG = "ImageClassifierActivity";
@@ -230,7 +232,11 @@ public class ImageClassifierActivity extends Activity {
 
                 // Attempt to access the I2C device
                 String I2C_DEVICE_NAME = "I2C1";
-                int I2C_ADDRESS = 0x15;
+                int I2C_ADDRESS = 0x55;
+
+//                performScan(manager, I2C_DEVICE_NAME);
+                // I2C1: 0x55, 0x70, 0x77
+                // I2C2: 0x50
 
 
                 try {
@@ -246,7 +252,7 @@ public class ImageClassifierActivity extends Activity {
                 try {
                     byte[] data = readCalibration(i2cDevice, 0x0);
 
-                    Log.w(TAG, "Here is data:  " + data);
+                    Log.w(TAG, "Here is data:  " + new String(data, StandardCharsets.UTF_8));
                 } catch (IOException e) {
                     Log.w(TAG, "Unable to read data: " + e.getMessage());
                 }
@@ -261,9 +267,28 @@ public class ImageClassifierActivity extends Activity {
     // Read a register block
     public byte[] readCalibration(I2cDevice device, int startAddress) throws IOException {
         // Read three consecutive register values
-        byte[] data = new byte[3];
+        byte[] data = new byte[32];
         device.readRegBuffer(startAddress, data, data.length);
         return data;
+    }
+
+    private void performScan(PeripheralManager manager, String i2c_bus) {
+        for (int address = 0; address < 256; address++) {
+
+            //auto-close the devices
+            try (final I2cDevice device = manager.openI2cDevice(i2c_bus, address)) {
+
+                try {
+                    device.readRegByte(0x0);
+                    Log.i(TAG, String.format(Locale.US, "Trying: 0x%02X - SUCCESS", address));
+                } catch (final IOException e) {
+                    Log.i(TAG, String.format(Locale.US, "Trying: 0x%02X - FAIL", address));
+                }
+
+            } catch (final IOException e) {
+                //in case the openI2cDevice(name, address) fails
+            }
+        }
     }
 
     /**
