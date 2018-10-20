@@ -80,6 +80,7 @@ public class ImageClassifierActivity extends Activity {
     private ButtonInputDriver mButtonBDriver;
     private I2cDevice i2cDevice;
     private ButtonInputDriver mButtonADriver;
+    private int MAX_RESULTS = 3;
 
     /**
      * Initialize the classifier that will be used to process images.
@@ -250,6 +251,8 @@ public class ImageClassifierActivity extends Activity {
                 updateStatus("Just received a new fancy model. Updating..");
                 this.MODEL_FILE = "food.tflite";
                 this.LABELS_FILE = "food-labels.txt";
+                this.MAX_RESULTS = 1;
+
                 this.initClassifier();
 
 
@@ -346,27 +349,27 @@ public class ImageClassifierActivity extends Activity {
      * Image classification process complete
      */
     private void onPhotoRecognitionReady(Collection<Recognition> results) {
-        updateStatus(formatResults(results));
+        updateStatus(formatResults(results, MAX_RESULTS));
         mProcessing = false;
     }
 
     /**
      * Format results list for display
      */
-    private String formatResults(Collection<Recognition> results) {
+    private String formatResults(Collection<Recognition> results, int maxResults) {
         if (results == null || results.isEmpty()) {
             return getString(R.string.empty_result);
         } else {
             StringBuilder sb = new StringBuilder();
             Iterator<Recognition> it = results.iterator();
             int counter = 0;
-            while (it.hasNext()) {
+            while (it.hasNext() && counter < maxResults) {
                 Recognition r = it.next();
                 sb.append(r.getTitle());
                 counter++;
                 if (counter < results.size() - 1) {
                     sb.append(", ");
-                } else if (counter == results.size() - 1) {
+                } else if (counter == results.size() - 1 && maxResults > 1) {
                     sb.append(" or ");
                 }
             }
