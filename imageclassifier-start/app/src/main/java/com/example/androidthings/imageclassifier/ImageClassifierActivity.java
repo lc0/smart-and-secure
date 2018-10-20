@@ -253,6 +253,13 @@ public class ImageClassifierActivity extends Activity {
                     byte[] data = readCalibration(i2cDevice, 0x0);
 
                     Log.w(TAG, "Here is data:  " + new String(data, StandardCharsets.UTF_8));
+
+                    StringBuffer result = new StringBuffer();
+                    for (byte b : data) {
+                        result.append(String.format("%02X ", b));
+//                        result.append(""); // delimiter
+                    }
+                    Log.w(TAG, "Here is data:  " + result.toString());
                 } catch (IOException e) {
                     Log.w(TAG, "Unable to read data: " + e.getMessage());
                 }
@@ -267,7 +274,7 @@ public class ImageClassifierActivity extends Activity {
     // Read a register block
     public byte[] readCalibration(I2cDevice device, int startAddress) throws IOException {
         // Read three consecutive register values
-        byte[] data = new byte[32];
+        byte[] data = new byte[8];
         device.readRegBuffer(startAddress, data, data.length);
         return data;
     }
