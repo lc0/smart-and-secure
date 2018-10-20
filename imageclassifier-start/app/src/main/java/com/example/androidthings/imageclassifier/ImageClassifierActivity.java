@@ -58,8 +58,8 @@ public class ImageClassifierActivity extends Activity {
     private static final int DIM_BATCH_SIZE = 1;
     private static final int DIM_PIXEL_SIZE = 3;
     /** TF model asset files */
-    private static final String LABELS_FILE = "labels.txt";
-    private static final String MODEL_FILE = "mobilenet_quant_v1_224.tflite";
+    private static String LABELS_FILE = "labels.txt";
+    private static String MODEL_FILE = "mobilenet_quant_v1_224.tflite";
 
     private ButtonInputDriver mButtonDriver;
     private boolean mProcessing;
@@ -245,6 +245,12 @@ public class ImageClassifierActivity extends Activity {
 
             case KeyEvent.KEYCODE_BUTTON_1: {
                 Log.d(TAG, "The button B was pressed");
+
+                updateStatus("Just received a new fancy model. Updating..");
+                this.MODEL_FILE = "food.tflite";
+                this.LABELS_FILE = "food-labels.txt";
+                this.initClassifier();
+
 
                 PeripheralManager manager = PeripheralManager.getInstance();
                 List<String> deviceList = manager.getI2cBusList();
