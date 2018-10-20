@@ -32,6 +32,7 @@ import com.google.android.things.contrib.driver.rainbowhat.RainbowHat;
 import com.google.android.things.pio.I2cDevice;
 import com.google.android.things.pio.PeripheralManager;
 
+
 import org.tensorflow.lite.Interpreter;
 
 import java.io.IOException;
@@ -202,8 +203,17 @@ public class ImageClassifierActivity extends Activity {
 
         //TODO: proper enum for buttons
         switch (keyCode) {
+
             case KeyEvent.KEYCODE_ENTER: {
                 Log.d(TAG, "The button C was pressed");
+                if (mProcessing) {
+                    updateStatus("Still processing, please wait");
+                    return true;
+                }
+                updateStatus("Running photo recognition");
+                mProcessing = true;
+                loadPhoto();
+
                 break;
             }
 
@@ -244,18 +254,6 @@ public class ImageClassifierActivity extends Activity {
                 break;
             }
         }
-
-        if (keyCode == KeyEvent.KEYCODE_ENTER) {
-            if (mProcessing) {
-                updateStatus("Still processing, please wait");
-                return true;
-            }
-            updateStatus("Running photo recognition");
-            mProcessing = true;
-            loadPhoto();
-            return true;
-        }
-
 
         return super.onKeyUp(keyCode, event);
     }
