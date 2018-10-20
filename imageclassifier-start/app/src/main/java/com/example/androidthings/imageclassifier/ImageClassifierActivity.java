@@ -59,7 +59,8 @@ public class ImageClassifierActivity extends Activity {
     private static final int DIM_PIXEL_SIZE = 3;
     /** TF model asset files */
     private static String LABELS_FILE = "labels.txt";
-    private static String MODEL_FILE = "mobilenet_quant_v1_224.tflite";
+//    private static String MODEL_FILE = "mobilenet_quant_v1_224.tflite";
+    private static String MODEL_FILE =  "graph.tflite";
 
     private ButtonInputDriver mButtonDriver;
     private boolean mProcessing;
