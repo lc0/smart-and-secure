@@ -58,8 +58,9 @@ public class ImageClassifierActivity extends Activity {
     private static final int DIM_BATCH_SIZE = 1;
     private static final int DIM_PIXEL_SIZE = 3;
     /** TF model asset files */
-    private static final String LABELS_FILE = "labels.txt";
-    private static final String MODEL_FILE = "mobilenet_quant_v1_224.tflite";
+    private static String LABELS_FILE = "labels.txt";
+//    private static String MODEL_FILE = "mobilenet_quant_v1_224.tflite";
+    private static String MODEL_FILE =  "graph.tflite";
 
     private ButtonInputDriver mButtonDriver;
     private boolean mProcessing;
@@ -79,6 +80,7 @@ public class ImageClassifierActivity extends Activity {
     private ButtonInputDriver mButtonBDriver;
     private I2cDevice i2cDevice;
     private ButtonInputDriver mButtonADriver;
+    private int MAX_RESULTS = 3;
 
     /**
      * Initialize the classifier that will be used to process images.
@@ -114,11 +116,11 @@ public class ImageClassifierActivity extends Activity {
     private void doRecognize(Bitmap image) {
         // TODO: ADD ARTIFICIAL INTELLIGENCE
         // Allocate space for the inference results
-        byte[][] confidencePerLabel = new byte[1][mLabels.size()];
+        float[][] confidencePerLabel = new float[1][mLabels.size()];
         // Allocate buffer for image pixels.
         int[] intValues = new int[TF_INPUT_IMAGE_WIDTH * TF_INPUT_IMAGE_HEIGHT];
         ByteBuffer imgData = ByteBuffer.allocateDirect(
-                DIM_BATCH_SIZE * TF_INPUT_IMAGE_WIDTH * TF_INPUT_IMAGE_HEIGHT * DIM_PIXEL_SIZE);
+                4 * DIM_BATCH_SIZE * TF_INPUT_IMAGE_WIDTH * TF_INPUT_IMAGE_HEIGHT * DIM_PIXEL_SIZE);
         imgData.order(ByteOrder.nativeOrder());
 
         // Read image data into buffer formatted for the TensorFlow model
@@ -246,6 +248,14 @@ public class ImageClassifierActivity extends Activity {
             case KeyEvent.KEYCODE_BUTTON_1: {
                 Log.d(TAG, "The button B was pressed");
 
+                updateStatus("Just received a new fancy model. Updating..");
+                this.MODEL_FILE = "food.tflite";
+                this.LABELS_FILE = "food-labels.txt";
+                this.MAX_RESULTS = 1;
+
+                this.initClassifier();
+
+
                 PeripheralManager manager = PeripheralManager.getInstance();
                 List<String> deviceList = manager.getI2cBusList();
                 if (deviceList.isEmpty()) {
@@ -339,27 +349,27 @@ public class ImageClassifierActivity extends Activity {
      * Image classification process complete
      */
     private void onPhotoRecognitionReady(Collection<Recognition> results) {
-        updateStatus(formatResults(results));
+        updateStatus(formatResults(results, MAX_RESULTS));
         mProcessing = false;
     }
 
     /**
      * Format results list for display
      */
-    private String formatResults(Collection<Recognition> results) {
+    private String formatResults(Collection<Recognition> results, int maxResults) {
         if (results == null || results.isEmpty()) {
             return getString(R.string.empty_result);
         } else {
             StringBuilder sb = new StringBuilder();
             Iterator<Recognition> it = results.iterator();
             int counter = 0;
-            while (it.hasNext()) {
+            while (it.hasNext() && counter < maxResults) {
                 Recognition r = it.next();
                 sb.append(r.getTitle());
                 counter++;
                 if (counter < results.size() - 1) {
                     sb.append(", ");
-                } else if (counter == results.size() - 1) {
+                } else if (counter == results.size() - 1 && maxResults > 1) {
                     sb.append(" or ");
                 }
             }
